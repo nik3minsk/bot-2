@@ -1,24 +1,23 @@
-# Перезаписываем .gitignore полностью
-cat > .gitignore << 'EOF'
-# Секреты
-.env
-.env.local
+# .gitignore
+# Скрываем чувствительные данные и временные файлы
 
-# Python
+# Переменные окружения (токены, пароли)
+.env
+
+# Файлы Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.so
 
 # Виртуальное окружение
-.venv/
 venv/
 env/
+.venv/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 
@@ -29,4 +28,3 @@ env/
 temp_*
 *.tmp
 .DS_Store
-EOF
