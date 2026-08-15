@@ -14,3 +14,5 @@
 ```bash
 git clone https://github.com/nik3minsk/bot-2.git
 cd bot-2
+
+## тестовое изменение
