@@ -1,0 +1,32 @@
+# Перезаписываем .gitignore полностью
+cat > .gitignore << 'EOF'
+# Секреты
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Логи
+*.log
+
+# Временные файлы
+temp_*
+*.tmp
+.DS_Store
+EOF
