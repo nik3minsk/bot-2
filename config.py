@@ -16,3 +16,7 @@ if not BOT_TOKEN:
 
 # CHAT_ID — может использоваться для отправки уведомлений в конкретный чат
 CHAT_ID = os.getenv("CHAT_ID")
+
+# Настройки логирования
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_FILE = os.getenv("LOG_FILE", "logs/bot.log")

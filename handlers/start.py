@@ -2,30 +2,56 @@
 """
 Модуль обработчиков команды /start и callback-запросов главного меню.
 """
+from database.user_models import get_user_by_id
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.logger import setup_logger
+from handlers.admin import list_users
+from handlers.register import start_register
+
+from utils.logger import get_logger  # <-- ИСПРАВЛЕНО: импортируем get_logger
 from keyboards.main_menu import get_main_menu_keyboard, get_back_menu_keyboard
 
 # Создаём логгер для этого модуля
-logger = setup_logger(__name__)
+logger = get_logger(__name__)  # <-- ИСПРАВЛЕНО: используем get_logger
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Обработчик команды /start.
     Отправляет приветственное сообщение и показывает главное меню.
-
-    Args:
-        update (Update): Объект обновления от Telegram
-        context (ContextTypes.DEFAULT_TYPE): Контекст обработчика
     """
-    user = update.effective_user
-    user_name = user.first_name if user.first_name else "Пользователь"
+    logger.info(f"Пользователь {update.effective_user.id} вызвал /start")
 
-    # Логируем запуск бота пользователем
-    logger.info(f"Пользователь {user.id} ({user_name}) запустил бота")
+    user_id = update.effective_user.id
+    user = get_user_by_id(user_id)
+
+    # Если пользователь не зарегистрирован
+    if not user:
+        await update.message.reply_text(
+            "👋 Добро пожаловать!\n"
+            "Для начала работы необходимо зарегистрироваться.\n"
+            "Введите /register для регистрации."
+        )
+        return
+
+    # Если заявка на рассмотрении
+    if user.get('status') == 'pending':
+        await update.message.reply_text(
+            "⏳ Ваша заявка на рассмотрении.\n"
+            "Администратор свяжется с вами."
+        )
+        return
+
+    # Если заявка отклонена
+    if user.get('status') == 'rejected':
+        await update.message.reply_text(
+            "❌ Ваша заявка была отклонена.\n"
+            "Обратитесь к администратору."
+        )
+        return
+
+    user_name = update.effective_user.first_name if update.effective_user.first_name else "Пользователь"
 
     # Формируем приветственное сообщение
     welcome_text = (
@@ -44,23 +70,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def greeting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Обработчик нажатия на кнопку "👋 Приветствие".
-    Отправляет приветственное сообщение.
-
-    Args:
-        update (Update): Объект обновления от Telegram
-        context (ContextTypes.DEFAULT_TYPE): Контекст обработчика
-    """
+    """Обработчик нажатия на кнопку "👋 Приветствие"."""
     query = update.callback_query
-    await query.answer()  # Подтверждаем нажатие (убираем "часики")
+    await query.answer()
 
     user = update.effective_user
     user_name = user.first_name if user.first_name else "Пользователь"
 
     logger.info(f"Пользователь {user.id} запросил приветствие")
 
-    # Текст приветствия
     greeting_text = (
         f"🌟 Привет, {user_name}!\n\n"
         f"Рад тебя видеть! Я — бот, созданный для помощи в работе с данными.\n"
@@ -71,7 +89,6 @@ async def greeting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"Жди обновлений! 🚀"
     )
 
-    # Редактируем текущее сообщение, показывая приветствие и кнопку "Назад"
     await query.edit_message_text(
         greeting_text,
         reply_markup=get_back_menu_keyboard()
@@ -79,14 +96,7 @@ async def greeting_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Обработчик нажатия на кнопку "ℹ️ О боте".
-    Показывает информацию о боте.
-
-    Args:
-        update (Update): Объект обновления от Telegram
-        context (ContextTypes.DEFAULT_TYPE): Контекст обработчика
-    """
+    """Обработчик нажатия на кнопку "ℹ️ О боте"."""
     query = update.callback_query
     await query.answer()
 
@@ -113,14 +123,7 @@ async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def back_to_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Обработчик нажатия на кнопку "🔙 Назад".
-    Возвращает пользователя в главное меню.
-
-    Args:
-        update (Update): Объект обновления от Telegram
-        context (ContextTypes.DEFAULT_TYPE): Контекст обработчика
-    """
+    """Обработчик нажатия на кнопку "🔙 Назад"."""
     query = update.callback_query
     await query.answer()
 
@@ -129,8 +132,18 @@ async def back_to_main_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     logger.info(f"Пользователь {user.id} вернулся в главное меню")
 
-    # Возвращаем главное меню
     await query.edit_message_text(
         f"👋 Главное меню, {user_name}!\n\nВыберите действие:",
         reply_markup=get_main_menu_keyboard()
     )
+
+
+
+
+async def register_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик нажатия на кнопку 'Регистрация'."""
+    query = update.callback_query
+    await query.answer()
+
+    # Вызываем функцию start_register
+    await start_register(update, context)
