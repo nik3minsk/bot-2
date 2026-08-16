@@ -1,9 +1,6 @@
 """
 Административные команды для управления пользователями
 """
-from utils.logger import get_logger
-logger = get_logger(__name__)
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from database.user_models import (
@@ -17,7 +14,9 @@ from database.user_models import (
     delete_user,
 )
 from middleware.auth import require_roles
+from utils.logger import get_logger
 
+logger = get_logger(__name__)
 
 # Состояния для диалогов
 WAITING_USER_ID = 1
@@ -36,17 +35,7 @@ AVAILABLE_ROLES = {
 
 
 def get_users_list_keyboard(users, action, title):
-    """
-    Создаёт клавиатуру со списком пользователей для выбора.
-
-    Args:
-        users (list): Список пользователей
-        action (str): Действие (set_role, block, unblock, delete)
-        title (str): Заголовок сообщения
-
-    Returns:
-        tuple: (текст сообщения, клавиатура)
-    """
+    """Создаёт клавиатуру со списком пользователей для выбора."""
     if not users:
         return "📭 Список пользователей пуст.", None
 
@@ -63,17 +52,14 @@ def get_users_list_keyboard(users, action, title):
         message += f"   ID: {user_id}\n"
         message += f"   Роли: {roles}\n\n"
 
-        # Добавляем кнопку для этого пользователя
         keyboard.append([
-            InlineKeyboardButton(
-                f"{idx}. {name}",
-                callback_data=f"{action}_{user_id}"
-            )
+            InlineKeyboardButton(f"{idx}. {name}", callback_data=f"{action}_{user_id}")
         ])
 
     keyboard.append([InlineKeyboardButton("🔙 Отмена", callback_data='admin_cancel')])
 
     return message, InlineKeyboardMarkup(keyboard)
+
 
 @require_roles(['admin'])
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -87,7 +73,6 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📭 Список пользователей пуст.")
         return
 
-    # Группируем по статусу
     active = [u for u in users if u.get('is_active', True)]
     blocked = [u for u in users if not u.get('is_active', True)]
     pending = [u for u in users if u.get('status') == 'pending']
@@ -112,21 +97,18 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for u in blocked[:5]:
             message += f"  • {u['full_name']} (ID: {u['telegram_id']})\n"
 
-    message += f"\n📊 <b>Всего пользователей:</b> {len(users)}"
-    # message += f"\n<i>💡 Для управления ролями выберите пользователя</i>"
+    message += f"\n\n📊 <b>Всего пользователей:</b> {len(users)}"
+    message += f"\n\n<i>💡 Для управления ролями выберите пользователя</i>"
 
-
-    # Кнопки
     keyboard = [
         [InlineKeyboardButton("➕ Добавить пользователя", callback_data='admin_add_user')],
-        [InlineKeyboardButton("📝 Назначить/Удалить роль", callback_data='admin_set_role')],
+        [InlineKeyboardButton("📝 Назначить/Убрать роль", callback_data='admin_set_role')],
         [InlineKeyboardButton("🔄 Блокировка/Разблокировка", callback_data='admin_toggle_block')],
         [InlineKeyboardButton("❌ Удалить пользователя", callback_data='admin_delete_user')],
         [InlineKeyboardButton("📋 Обновить список", callback_data='admin_refresh')],
         [InlineKeyboardButton("🔙 В главное меню", callback_data='back_to_main')],
     ]
 
-    # Отправляем ответ
     if update.callback_query:
         try:
             await update.callback_query.edit_message_text(
@@ -135,12 +117,9 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         except Exception as e:
-            # Если сообщение не изменилось — игнорируем
             if "Message is not modified" in str(e):
                 await update.callback_query.answer("✅ Список уже актуален.")
             else:
-                # Если другая ошибка — логируем
-                logger.error(f"Ошибка при обновлении списка: {e}")
                 raise e
     else:
         await update.message.reply_text(
@@ -155,17 +134,12 @@ async def admin_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обновляет список пользователей."""
     query = update.callback_query
     await query.answer()
-
-    # Просто вызываем list_users
     await list_users(update, context)
-
 
 
 @require_roles(['admin'])
 async def admin_add_user_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начинает процесс добавления пользователя вручную."""
-
-
     query = update.callback_query
     await query.answer()
 
@@ -206,7 +180,6 @@ async def admin_add_user_confirm(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("❌ ID должен быть числом.")
         return WAITING_ADD_USER
 
-    # Проверяем, не существует ли уже
     existing = get_user_by_id(user_id)
     if existing:
         await update.message.reply_text(
@@ -215,7 +188,6 @@ async def admin_add_user_confirm(update: Update, context: ContextTypes.DEFAULT_T
         )
         return WAITING_ADD_USER
 
-    # Создаём пользователя
     user = create_user(
         telegram_id=user_id,
         full_name=full_name,
@@ -236,55 +208,8 @@ async def admin_add_user_confirm(update: Update, context: ContextTypes.DEFAULT_T
     else:
         await update.message.reply_text("❌ Ошибка при создании пользователя.")
 
-    # --- ВОЗВРАЩАЕМСЯ В МЕНЮ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ ---
-    users = get_all_users()
-
-    if not users:
-        await update.message.reply_text("📭 Список пользователей пуст.")
-        return ConversationHandler.END
-
-    active = [u for u in users if u.get('is_active', True)]
-    blocked = [u for u in users if not u.get('is_active', True)]
-    pending = [u for u in users if u.get('status') == 'pending']
-
-    message = "👥 <b>Управление пользователями</b>\n\n"
-
-    if active:
-        message += "✅ <b>Активные пользователи:</b>\n"
-        for u in active[:10]:
-            roles = ', '.join(u.get('roles', ['guest']))
-            message += f"  • {u['full_name']} (ID: {u['telegram_id']}) - {roles}\n"
-        if len(active) > 10:
-            message += f"  ... и ещё {len(active) - 10} пользователей\n"
-
-    if pending:
-        message += f"\n⏳ <b>Ожидают одобрения ({len(pending)}):</b>\n"
-        for u in pending[:5]:
-            message += f"  • {u['full_name']} (ID: {u['telegram_id']})\n"
-
-    if blocked:
-        message += f"\n🚫 <b>Заблокированные ({len(blocked)}):</b>\n"
-        for u in blocked[:5]:
-            message += f"  • {u['full_name']} (ID: {u['telegram_id']})\n"
-
-    message += f"\n📊 <b>Всего пользователей:</b> {len(users)}"
-
-    keyboard = [
-        [InlineKeyboardButton("➕ Добавить пользователя", callback_data='admin_add_user')],
-        [InlineKeyboardButton("📝 Назначить роль", callback_data='admin_set_role')],
-        [InlineKeyboardButton("🔄 Блокировка/Разблокировка", callback_data='admin_toggle_block')],
-        [InlineKeyboardButton("❌ Удалить пользователя", callback_data='admin_delete_user')],
-        [InlineKeyboardButton("📋 Обновить список", callback_data='admin_refresh')],
-        [InlineKeyboardButton("🔙 В главное меню", callback_data='back_to_main')],
-    ]
-
-    await update.message.reply_text(
-        message,
-        parse_mode='HTML',
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-    logger.info(f"Выход из диалога. Возвращаем ConversationHandler.END")
+    # Возвращаемся в список
+    await list_users(update, context)
     return ConversationHandler.END
 
 
@@ -304,7 +229,7 @@ async def set_role_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message, keyboard = get_users_list_keyboard(
         active_users,
         'role_select',
-        "📝 <b>Выберите пользователя для назначения/удаления роли:</b>"
+        "📝 <b>Выберите пользователя для назначения роли:</b>"
     )
 
     await query.edit_message_text(
@@ -333,13 +258,12 @@ async def set_role_select_user(update: Update, context: ContextTypes.DEFAULT_TYP
 
     current_roles = user.get('roles', [])
 
-    # Показываем доступные роли с отметками
     keyboard = []
     for role_id, role_name in AVAILABLE_ROLES.items():
         if role_id in current_roles:
-            button_text = f"✅ {role_name}"  # Уже назначена
+            button_text = f"✅ {role_name}"
         else:
-            button_text = f"⬜ {role_name}"  # Не назначена
+            button_text = f"⬜ {role_name}"
         keyboard.append([
             InlineKeyboardButton(button_text, callback_data=f"role_set_{role_id}")
         ])
@@ -421,24 +345,7 @@ async def set_role_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.edit_message_text("❌ Ошибка при изменении роли.")
 
-    # Возвращаем WAITING_ROLE, чтобы остаться в диалоге и менять роли дальше
     return WAITING_ROLE
-
-
-@require_roles(['admin'])
-async def exit_role_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Выходит из выбора ролей и показывает список пользователей."""
-    query = update.callback_query
-    await query.answer()
-
-    # Очищаем данные диалога
-    context.user_data.clear()
-
-    # Показываем список пользователей
-    await list_users(update, context)
-
-    # Завершаем диалог
-    return ConversationHandler.END
 
 
 @require_roles(['admin'])
@@ -495,7 +402,6 @@ async def toggle_block_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
             parse_mode='HTML'
         )
 
-        # Уведомляем пользователя
         try:
             if new_status:
                 await context.bot.send_message(
@@ -514,10 +420,8 @@ async def toggle_block_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await query.edit_message_text("❌ Ошибка при изменении статуса.")
 
-    # Обновляем список
-    await admin_refresh(update, context)
+    await list_users(update, context)
     return ConversationHandler.END
-
 
 
 @require_roles(['admin'])
@@ -607,19 +511,25 @@ async def delete_user_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.edit_message_text("❌ Ошибка при удалении.")
 
-    # Обновляем список (используем query, а не update.message)
-    await admin_refresh(update, context)
+    await list_users(update, context)
     return ConversationHandler.END
 
 
+@require_roles(['admin'])
+async def exit_role_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Выходит из выбора ролей и показывает список пользователей."""
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data.clear()
+    await list_users(update, context)
+    return ConversationHandler.END
 
 
 @require_roles(['admin'])
 async def admin_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Отменяет текущее действие админа и возвращает в меню управления."""
+    """Отменяет текущее действие админа."""
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("❌ Действие отменено.")
-    # Возвращаемся в меню управления пользователями
-    await admin_refresh(update, context)
+    await list_users(update, context)
     return ConversationHandler.END

@@ -29,12 +29,20 @@ def require_roles(required_roles):
             user_roles = get_user_role(user_id)
             
             if not any(role in user_roles for role in required_roles):
-                await update.message.reply_text(
-                    "⛔ У вас нет доступа к этой команде.\n"
-                    "Обратитесь к администратору для получения прав."
-                )
+                # Проверяем, откуда пришёл запрос
+                if update.callback_query:
+                    await update.callback_query.answer("⛔ У вас нет доступа к этой команде.", show_alert=True)
+                    await update.callback_query.edit_message_text(
+                        "⛔ У вас нет доступа к этой команде.\n"
+                        "Обратитесь к администратору для получения прав."
+                    )
+                else:
+                    await update.message.reply_text(
+                        "⛔ У вас нет доступа к этой команде.\n"
+                        "Обратитесь к администратору для получения прав."
+                    )
                 return
-            
+
             return await func(update, context)
         return wrapper
     return decorator
