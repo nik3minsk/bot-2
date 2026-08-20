@@ -2,3 +2,4 @@
 python-telegram-bot==22.6
 python-dotenv==1.0.0
 pymongo
+python-whois
