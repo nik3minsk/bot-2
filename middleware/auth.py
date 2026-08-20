@@ -114,10 +114,10 @@ def require_feature(feature_id):
                 if update.message:
                     await update.message.reply_text("❌ Функция не найдена.")
                 elif update.callback_query:
-                    await update.callback_query.answer("❌ Функция не найдена.")
+                    await update.callback_query.answer("❌ Функция не найдена.", show_alert=True)
                 else:
-                    # Логируем или игнорируем неизвестный тип обновления
-                    print(f"⚠️ Неизвестный тип обновления: {update}")
+                    # Если оба объекта None — просто логируем и выходим
+                    print(f"⚠️ Неизвестный тип обновления (feature: {feature_id}): {update}")
                 return
 
             if not feature.get('enabled'):
