@@ -5,6 +5,39 @@ from datetime import datetime
 from pymongo import ASCENDING
 from .mongodb import get_db
 
+# В начало файла, после импортов, добавим константы ролей
+
+# Роли пользователей
+ROLE_ADMIN = 'admin'
+ROLE_DEV = 'dev'
+ROLE_BOSS = 'boss'
+ROLE_MANAGER = 'manager'
+ROLE_BUH = 'buh'
+ROLE_USER = 'user'
+ROLE_GUEST = 'guest'
+
+# Доступные роли с описаниями
+AVAILABLE_ROLES = {
+    ROLE_ADMIN: '👑 Администратор (всё)',
+    ROLE_DEV: '🛠️ Разработчик (технические функции)',
+    ROLE_BOSS: '👔 Руководитель (управление, зарплата)',
+    ROLE_MANAGER: '📊 Менеджер (работа, мониторинг)',
+    ROLE_BUH: '💰 Бухгалтер (НДС, отчёты)',
+    ROLE_USER: '👤 Пользователь (личное)',
+    ROLE_GUEST: '👋 Гость (только просмотр)'
+}
+
+# Уровни доступа для проверки
+ROLE_LEVELS = {
+    ROLE_ADMIN: 100,
+    ROLE_DEV: 90,
+    ROLE_BOSS: 80,
+    ROLE_MANAGER: 60,
+    ROLE_BUH: 50,
+    ROLE_USER: 30,
+    ROLE_GUEST: 10,
+}
+
 def get_users_collection():
     """Возвращает коллекцию пользователей."""
     db = get_db()

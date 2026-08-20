@@ -2,18 +2,20 @@
 """
 Модуль обработчиков команды /start и callback-запросов главного меню.
 """
-from database.user_models import get_user_by_id
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+from database.resource_models import get_min_days
+from database.user_models import get_user_by_id
 from handlers.admin import list_users
+from handlers.monitoring import monitoring_resources
 from handlers.register import start_register
-
-from utils.logger import get_logger  # <-- ИСПРАВЛЕНО: импортируем get_logger
+from middleware.auth import get_user_role
+from utils.logger import get_logger
 from keyboards.main_menu import get_main_menu_keyboard, get_back_menu_keyboard
 
 # Создаём логгер для этого модуля
-logger = get_logger(__name__)  # <-- ИСПРАВЛЕНО: используем get_logger
+logger = get_logger(__name__)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -23,8 +25,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """
     logger.info(f"Пользователь {update.effective_user.id} вызвал /start")
 
+
     user_id = update.effective_user.id
     user = get_user_by_id(user_id)
+    roles = get_user_role(user_id)
+    logger.info(f"Роли пользователя {user_id}: {roles}")  #
 
     # Если пользователь не зарегистрирован
     if not user:
@@ -62,10 +67,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"Выбери действие ниже:"
     )
 
-    # Отправляем сообщение с клавиатурой
+    # Отправляем сообщение с клавиатурой (передаём роли)
     await update.message.reply_text(
         welcome_text,
-        reply_markup=get_main_menu_keyboard()
+        reply_markup=get_main_menu_keyboard(roles)  # <-- передаём роли
     )
 
 
@@ -129,21 +134,99 @@ async def back_to_main_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     user = update.effective_user
     user_name = user.first_name if user.first_name else "Пользователь"
+    roles = get_user_role(update.effective_user.id)
 
     logger.info(f"Пользователь {user.id} вернулся в главное меню")
 
     await query.edit_message_text(
         f"👋 Главное меню, {user_name}!\n\nВыберите действие:",
-        reply_markup=get_main_menu_keyboard()
+        reply_markup=get_main_menu_keyboard(roles)  # <-- передаём роли
     )
-
-
 
 
 async def register_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик нажатия на кнопку 'Регистрация'."""
     query = update.callback_query
     await query.answer()
-
-    # Вызываем функцию start_register
     await start_register(update, context)
+
+
+async def menu_admin_dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Раздел 'Admin (dev)'."""
+    query = update.callback_query
+    await query.answer()
+
+    # Проверяем доступ
+    user_id = update.effective_user.id
+    roles = get_user_role(user_id)
+
+    if 'dev' not in roles and 'admin' not in roles:
+        await query.edit_message_text("⛔ У вас нет доступа к этому разделу.")
+        return
+
+    # Получаем минимальное количество дней
+    min_days = get_min_days()
+    if min_days is not None:
+        if min_days < 10:
+            monitoring_text = f"🌐 Мониторинг ресурсов ({min_days} дн!)"
+        else:
+            monitoring_text = f"🌐 Мониторинг ресурсов ({min_days} дн)"
+    else:
+        monitoring_text = "🌐 Мониторинг ресурсов (—)"
+
+    keyboard = [
+        [InlineKeyboardButton("👥 Управление пользователями", callback_data='admin_list_users')],
+        [InlineKeyboardButton(monitoring_text, callback_data='monitoring_resources')],
+        [InlineKeyboardButton("🔙 В главное меню", callback_data='back_to_main')],
+    ]
+
+    await query.edit_message_text(
+        "🔧 <b>Панель разработчика</b>\n\n"
+        "Выберите действие:",
+        parse_mode='HTML',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+
+async def menu_personal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Раздел 'Личное'."""
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("👤 Раздел 'Личное' (в разработке).")
+
+async def menu_monitoring(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Раздел 'Мониторинг'."""
+    query = update.callback_query
+    await query.answer()
+    # Здесь вызываем monitoring_resources
+    await monitoring_resources(update, context)
+    # await query.edit_message_text("📊 Раздел 'Мониторинг' (в разработке).")
+
+async def menu_work(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Раздел 'Работа'."""
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("💼 Раздел 'Работа' (в разработке).")
+
+async def menu_mail(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Раздел 'Обработка почты'."""
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("📧 Раздел 'Обработка почты' (в разработке).")
+
+
+
+
+async def menu_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Раздел 'Настройки'."""
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("⚙️ Раздел 'Настройки' (в разработке).")
+
+
+async def monitoring_resources_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Раздел 'Мониторинг ресурсов'."""
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("🌐 <b>Мониторинг ресурсов</b>\n\nРаздел в разработке.", parse_mode='HTML')

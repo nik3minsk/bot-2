@@ -5,17 +5,34 @@
 """
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from database.resource_models import get_min_days
+from database.user_models import ROLE_DEV, ROLE_ADMIN, ROLE_GUEST
 
-def get_main_menu_keyboard() -> InlineKeyboardMarkup:
+
+def get_main_menu_keyboard(roles=None):
     """
-    Возвращает клавиатуру главного меню.
+    Возвращает клавиатуру главного меню в зависимости от ролей.
     """
-    keyboard = [
-        [InlineKeyboardButton("👋 Приветствие", callback_data='greeting')],
-        [InlineKeyboardButton("ℹ️ О боте", callback_data='about')],
-        [InlineKeyboardButton("👥 Управление пользователями", callback_data='admin_list_users')],
-        [InlineKeyboardButton("📝 Регистрация", callback_data='register')],
-    ]
+    if roles is None:
+        roles = []
+
+    keyboard = []
+
+    # Базовое меню для всех
+    keyboard.append([InlineKeyboardButton("👤 Личное", callback_data='menu_personal')])
+
+    # Для всех кроме гостей
+    if ROLE_GUEST not in roles:
+        keyboard.append([InlineKeyboardButton("📊 Мониторинг", callback_data='menu_monitoring')])
+        keyboard.append([InlineKeyboardButton("💼 Работа", callback_data='menu_work')])
+        keyboard.append([InlineKeyboardButton("📧 Обработка почты", callback_data='menu_mail')])
+
+    # Для разработчиков и админов — только Admin (dev)
+    if roles and (ROLE_DEV in roles or ROLE_ADMIN in roles):
+        keyboard.append([InlineKeyboardButton("🔧 Admin (dev)", callback_data='menu_admin_dev')])
+
+    keyboard.append([InlineKeyboardButton("⚙️ Настройки", callback_data='menu_settings')])
+
     return InlineKeyboardMarkup(keyboard)
 
 
