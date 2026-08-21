@@ -164,19 +164,30 @@ async def menu_admin_dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text("⛔ У вас нет доступа к этому разделу.")
         return
 
-    # Получаем минимальное количество дней
-    min_days = get_min_days()
-    if min_days is not None:
-        if min_days < 10:
-            monitoring_text = f"🌐 Мониторинг ресурсов ({min_days} дн!)"
-        else:
-            monitoring_text = f"🌐 Мониторинг ресурсов ({min_days} дн)"
+    # ========== НОВАЯ ЛОГИКА ==========
+    # Проверяем, есть ли ресурсы в базе
+    from database.resource_models import get_all_resources
+    resources = get_all_resources()
+
+    if not resources:
+        # Если ресурсов нет — показываем кнопку "Добавить ресурс"
+        monitoring_text = "➕ Добавить ресурс"
+        monitoring_callback = 'monitoring_add'  # <-- этот callback уже есть в bot.py
     else:
-        monitoring_text = "🌐 Мониторинг ресурсов (—)"
+        # Если ресурсы есть — показываем мониторинг с количеством дней
+        min_days = get_min_days()
+        if min_days is not None:
+            if min_days < 10:
+                monitoring_text = f"🌐 Мониторинг ресурсов ({min_days} дн!)"
+            else:
+                monitoring_text = f"🌐 Мониторинг ресурсов ({min_days} дн)"
+        else:
+            monitoring_text = "🌐 Мониторинг ресурсов (—)"
+        monitoring_callback = 'monitoring_resources'  # <-- этот callback уже есть в bot.py
 
     keyboard = [
         [InlineKeyboardButton("👥 Управление пользователями", callback_data='admin_list_users')],
-        [InlineKeyboardButton(monitoring_text, callback_data='monitoring_resources')],
+        [InlineKeyboardButton(monitoring_text, callback_data=monitoring_callback)],  # <-- изменённая строка
         [InlineKeyboardButton("🔙 В главное меню", callback_data='back_to_main')],
     ]
 
